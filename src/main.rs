@@ -1,3 +1,4 @@
+use std::fmt;
 use std::fs::{DirEntry, Metadata};
 use std::io::Result;
 use std::path::Path;
@@ -6,6 +7,34 @@ use std::{fs, vec};
 pub struct Ls;
 
 // TODO: formatting string so each column gows the same width in table
+
+enum EntryType {
+    Dir,
+    File,
+    Other,
+}
+
+impl fmt::Display for EntryType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            EntryType::Dir => write!(f, "dir"),
+            EntryType::File => write!(f, "file"),
+            EntryType::Other => write!(f, "other"),
+        }
+    }
+}
+
+impl From<Metadata> for EntryType {
+    fn from(meta: Metadata) -> Self {
+        if meta.is_dir() {
+            Self::Dir
+        } else if meta.is_file() {
+            Self::File
+        } else {
+            Self::Other
+        }
+    }
+}
 
 impl Ls {
     pub fn execute() -> Result<()> {
@@ -72,22 +101,11 @@ impl Ls {
             .and_then(|name| name.to_str())
             .unwrap_or("");
 
-        let base_type = Ls::get_entry_type(&metadata);
+        let base_type: EntryType = metadata.clone().into();
 
         let entry_info = format!("{} {} {}", name, base_type, metadata.len());
 
         Ok((metadata, entry_info))
-    }
-
-    fn get_entry_type(metadata: &Metadata) -> &'static str {
-        // TODO: don't really like this implementation
-        if metadata.is_dir() {
-            "dir"
-        } else if metadata.is_file() {
-            "file"
-        } else {
-            "other"
-        }
     }
 }
 
