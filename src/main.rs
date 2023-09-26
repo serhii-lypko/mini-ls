@@ -4,61 +4,53 @@ use std::fs::{DirEntry, Metadata};
 use std::io::Result;
 use std::path::Path;
 
-// TODO: ordering of the structs & methods declaration?
-
 pub fn main() {
-    //
+    Ls::execute();
 }
 
 pub struct Ls;
 
 impl Ls {
     pub fn execute() -> Result<()> {
-        let arg_path_string = Ls::get_path_string_from_args();
-        let arg_path_string = match arg_path_string {
-            Some(path_string) => path_string,
-            None => ".".to_string(),
-        };
-
-        let root_path = Path::new(arg_path_string.as_str());
+        let path_string = Ls::get_args_path_or_default();
+        let root_path = Path::new(path_string.as_str());
 
         Ls::print_dir(&root_path)
     }
 
-    // TODO: rename -> path_or_default?
-    fn get_path_string_from_args() -> Option<String> {
+    fn get_args_path_or_default() -> String {
         use std::env;
 
         let args: Vec<String> = env::args().collect();
+        let args_path = args.get(1).map(|path| path.to_owned());
 
-        if args.len() > 1 {
-            let expected_arg_path = &args[1];
-            return Some(expected_arg_path.to_owned());
+        match args_path {
+            Some(arg_path) => arg_path,
+            None => ".".to_string(),
         }
-
-        None
     }
 
-    /*
-        fs::read_dir(path) returns Result<ReadDir, Error>
-        if success -> Iterator<Result<DirEntry, Error>>
-    */
-
-    // TODO: but how to implement sorting while mapping stuff
-    // TODO: simple strategy is to simply put dir on top of the new list and files on the end
     fn print_dir(root_path: &Path) -> Result<()> {
         use fs::read_dir;
 
-        // Iterator<Result<EntryInfo>>
-        let entries_info_iter = read_dir(root_path)?.map(EntryInfo::gather_data);
+        let mut sorted_entries: Vec<String> = vec![];
 
-        let res = entries_info_iter
+        read_dir(root_path)?
+            .map(EntryInfo::gather_data)
             .filter_map(Result::ok)
-            .fold("".to_string(), |cur, next| {
-                format!("{}{}\n", cur, next.info_string.as_str())
+            .for_each(|entry_info| {
+                if entry_info.meta.is_dir() {
+                    sorted_entries.insert(0, entry_info.info_string);
+                } else if entry_info.meta.is_file() {
+                    sorted_entries.push(entry_info.info_string);
+                }
             });
 
-        println!("{}", res);
+        let result_string = sorted_entries
+            .into_iter()
+            .fold("".to_string(), |cur, next| format!("{}{}\n", cur, next));
+
+        println!("{}", result_string);
 
         Ok(())
     }
